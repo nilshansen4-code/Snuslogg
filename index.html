@@ -1,0 +1,693 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Snuslogg">
+<meta name="theme-color" content="#f4f2ee" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#16181a" media="(prefers-color-scheme: dark)">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon-180.png">
+<title>Snuslogg</title>
+<style>
+:root{
+  --bg:#f4f2ee; --surface:#ffffff; --surface-2:#ebe8e2; --text:#1d1f21; --muted:#5f6368;
+  --accent:#2f5d50; --accent-ink:#ffffff; --accent-soft:#dbe7e2; --danger:#a3312b; --border:#d6d2ca;
+  --radius:14px;
+}
+@media (prefers-color-scheme: dark){
+  :root{ --bg:#16181a; --surface:#212427; --surface-2:#2b2f33; --text:#eceae6; --muted:#a6abb0;
+    --accent:#7fb8a5; --accent-ink:#10201b; --accent-soft:#25403a; --danger:#ef8a83; --border:#3a3f44; }
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{font:16px/1.4 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;background:var(--bg);color:var(--text);
+  -webkit-tap-highlight-color:transparent;-webkit-text-size-adjust:100%}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer}
+:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.app{display:flex;flex-direction:column;min-height:100%;padding-top:env(safe-area-inset-top)}
+header{padding:12px 16px 4px;display:flex;justify-content:space-between;align-items:baseline}
+header h1{font-size:20px;margin:0}
+header .today{color:var(--muted);font-size:15px}
+main{flex:1;padding:8px 16px calc(96px + env(safe-area-inset-bottom))}
+.view[hidden]{display:none}
+h2{font-size:17px;margin:20px 0 8px}
+.muted{color:var(--muted)}
+.small{font-size:14px}
+
+/* Logga */
+.log-wrap{display:flex;flex-direction:column;align-items:center;gap:16px;padding-top:24px}
+.big{width:220px;height:220px;border-radius:50%;border:0;background:var(--accent);color:var(--accent-ink);
+  font-size:28px;font-weight:700;box-shadow:0 8px 24px rgba(0,0,0,.18);transition:transform .08s}
+.big:active{transform:scale(.96)}
+.big span{display:block;font-size:15px;font-weight:500;opacity:.85;margin-top:4px}
+.last{text-align:center;color:var(--muted);font-size:15px;min-height:42px}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 14px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;width:100%}
+.stat{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:10px;text-align:center}
+.stat b{display:block;font-size:22px}
+.stat small{color:var(--muted);font-size:13px}
+
+/* Chips */
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{border:1px solid var(--border);background:var(--surface);border-radius:999px;padding:9px 14px;min-height:44px}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);font-weight:600}
+.chip.add{border-style:dashed;color:var(--muted)}
+.chip .dist{opacity:.75;font-size:13px;margin-left:4px}
+.inline-add{display:flex;gap:8px;margin-top:8px}
+.inline-add[hidden]{display:none}
+input[type=text],input[type=datetime-local]{flex:1;min-width:0;border:1px solid var(--border);background:var(--surface);
+  border-radius:10px;padding:10px 12px;min-height:44px;font-size:16px}
+.btn{border:0;border-radius:12px;padding:12px 16px;min-height:44px;background:var(--surface-2);font-weight:600}
+.btn.primary{background:var(--accent);color:var(--accent-ink)}
+.btn.danger{background:transparent;color:var(--danger);border:1px solid var(--danger)}
+.btn.block{width:100%}
+.row{display:flex;gap:8px}
+.row > *{flex:1}
+
+/* Sheet */
+.backdrop{position:fixed;inset:0;background:rgba(0,0,0,.35);z-index:20}
+.sheet{position:fixed;left:0;right:0;bottom:0;z-index:21;background:var(--bg);border-radius:18px 18px 0 0;
+  padding:8px 16px calc(16px + env(safe-area-inset-bottom));max-height:88vh;overflow:auto;
+  box-shadow:0 -8px 30px rgba(0,0,0,.2)}
+.sheet[hidden],.backdrop[hidden]{display:none}
+.grab{width:40px;height:5px;border-radius:3px;background:var(--border);margin:4px auto 10px}
+.sheet h3{margin:0 0 2px;font-size:19px}
+.hint{font-size:14px;color:var(--muted);margin:4px 0 0}
+.badge{display:inline-block;font-size:12px;padding:2px 8px;border-radius:999px;background:var(--accent-soft);color:var(--text);margin-left:6px;vertical-align:middle}
+
+/* Historik */
+.day{margin-top:16px}
+.day h2{margin:0 0 6px;font-size:15px;color:var(--muted);font-weight:600;display:flex;justify-content:space-between}
+.entry{display:flex;gap:12px;align-items:center;width:100%;text-align:left;background:var(--surface);
+  border:1px solid var(--border);border-radius:12px;padding:10px 12px;margin-bottom:6px;min-height:52px}
+.entry time{font-variant-numeric:tabular-nums;font-weight:600;width:48px}
+.entry .meta{flex:1;min-width:0}
+.entry .meta div{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.entry .meta .sub{color:var(--muted);font-size:14px}
+
+/* Mönster */
+.seg{display:flex;background:var(--surface-2);border-radius:10px;padding:3px;gap:3px}
+.seg button{flex:1;border:0;background:transparent;border-radius:8px;padding:8px;min-height:40px}
+.seg button[aria-pressed="true"]{background:var(--surface);font-weight:600;box-shadow:0 1px 2px rgba(0,0,0,.12)}
+.hours{display:grid;grid-template-columns:repeat(24,1fr);gap:2px;align-items:end;height:120px}
+.hours div{background:var(--accent);border-radius:3px 3px 0 0;min-height:2px}
+.hours-axis{display:grid;grid-template-columns:repeat(4,1fr);font-size:12px;color:var(--muted);margin-top:4px}
+.hbar{display:grid;grid-template-columns:96px 1fr 40px;gap:8px;align-items:center;margin:6px 0;font-size:15px}
+.hbar .lbl{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hbar .track{background:var(--surface-2);border-radius:6px;height:14px;overflow:hidden}
+.hbar .fill{background:var(--accent);height:100%;border-radius:6px}
+.hbar .n{text-align:right;font-variant-numeric:tabular-nums;color:var(--muted)}
+.insight{margin:0;padding-left:18px}
+.insight li{margin:4px 0}
+
+/* Platser */
+.place-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+.place-row .name{flex:1}
+
+/* Flikar */
+nav{position:fixed;left:0;right:0;bottom:0;z-index:10;display:flex;background:var(--surface);border-top:1px solid var(--border);
+  padding-bottom:env(safe-area-inset-bottom)}
+nav button{flex:1;border:0;background:transparent;padding:10px 4px 8px;min-height:56px;font-size:13px;color:var(--muted)}
+nav button[aria-current="page"]{color:var(--accent);font-weight:700}
+nav svg{display:block;margin:0 auto 2px;width:24px;height:24px}
+
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(80px + env(safe-area-inset-bottom));z-index:30;
+  background:var(--text);color:var(--bg);padding:10px 16px;border-radius:10px;font-size:15px;max-width:90vw}
+.toast[hidden]{display:none}
+.empty{color:var(--muted);text-align:center;padding:32px 0}
+</style>
+</head>
+<body>
+<div class="app">
+  <header>
+    <h1>Snuslogg</h1>
+    <span class="today" id="todayCount"></span>
+  </header>
+
+  <main>
+    <!-- LOGGA -->
+    <section class="view" id="view-log" aria-labelledby="tab-log">
+      <div class="log-wrap">
+        <button class="big" id="logBtn" aria-describedby="lastInfo">Logga<span>en snus nu</span></button>
+        <div class="last" id="lastInfo" aria-live="polite"></div>
+        <div class="stats" id="quickStats"></div>
+      </div>
+    </section>
+
+    <!-- HISTORIK -->
+    <section class="view" id="view-history" hidden aria-labelledby="tab-history">
+      <div id="historyList"></div>
+    </section>
+
+    <!-- MÖNSTER -->
+    <section class="view" id="view-patterns" hidden aria-labelledby="tab-patterns">
+      <div class="seg" role="group" aria-label="Period" id="periodSeg">
+        <button data-period="7" aria-pressed="false">7 dagar</button>
+        <button data-period="30" aria-pressed="true">30 dagar</button>
+        <button data-period="0" aria-pressed="false">Allt</button>
+      </div>
+      <div id="patterns"></div>
+    </section>
+
+    <!-- DATA -->
+    <section class="view" id="view-data" hidden aria-labelledby="tab-data">
+      <h2>Exportera</h2>
+      <p class="muted small">CSV öppnas i Numbers eller Excel. JSON är en fullständig säkerhetskopia som kan läsas in igen.</p>
+      <div class="row">
+        <button class="btn primary" id="exportCsv">Exportera CSV</button>
+        <button class="btn" id="exportJson">Säkerhetskopia</button>
+      </div>
+      <button class="btn block" id="copyCsv" style="margin-top:8px">Kopiera CSV till urklipp</button>
+
+      <h2>Läs in säkerhetskopia</h2>
+      <p class="muted small">Slår ihop med befintlig data. Inget skrivs över.</p>
+      <label class="btn block" style="display:block;text-align:center">
+        Välj JSON-fil
+        <input type="file" id="importFile" accept="application/json,.json" style="position:absolute;opacity:0;width:1px;height:1px">
+      </label>
+
+      <h2>Platser</h2>
+      <p class="muted small">Appen lär sig var platserna ligger utifrån när du väljer dem. Byt namn eller ta bort här.</p>
+      <div id="placeList"></div>
+
+      <h2>Situationer</h2>
+      <div id="tagList"></div>
+
+      <h2>Radera allt</h2>
+      <button class="btn danger block" id="wipeBtn">Radera all data</button>
+      <p class="muted small" id="storageInfo"></p>
+    </section>
+  </main>
+
+  <nav aria-label="Flikar">
+    <button id="tab-log" data-view="log" aria-current="page">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>Logga</button>
+    <button id="tab-history" data-view="history">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M4 6h16M4 12h16M4 18h10"/></svg>Historik</button>
+    <button id="tab-patterns" data-view="patterns">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M5 20V10M12 20V4M19 20v-7"/></svg>Mönster</button>
+    <button id="tab-data" data-view="data">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>Data</button>
+  </nav>
+</div>
+
+<div class="backdrop" id="backdrop" hidden></div>
+<div class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="sheetTitle" hidden></div>
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script>
+(() => {
+'use strict';
+
+/* ---------- Konstanter ---------- */
+const LS_KEY = 'snuslogg.v1';
+const DEFAULT_TAGS = ['Kaffe','Efter mat','Stress','Tristess','Socialt','Alkohol','Belöning','Bilkörning'];
+const WEEKDAYS = ['Mån','Tis','Ons','Tor','Fre','Lör','Sön'];
+const BASE_RADIUS = 150;   // meter: hur nära en känd plats måste man vara för automatisk tagg
+const LEARN_LIMIT = 500;   // meter: längre bort än så flyttas inte platsens mittpunkt
+
+/* ---------- Lagring ---------- */
+let state = load();
+function load(){
+  try{
+    const s = JSON.parse(localStorage.getItem(LS_KEY));
+    if (s && Array.isArray(s.entries)) {
+      return { entries: s.entries, places: s.places || [], tags: s.tags || DEFAULT_TAGS.slice() };
+    }
+  }catch(e){}
+  return { entries: [], places: [], tags: DEFAULT_TAGS.slice() };
+}
+function save(){
+  try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }
+  catch(e){ toast('Kunde inte spara. Exportera din data.'); }
+}
+try{ navigator.storage && navigator.storage.persist && navigator.storage.persist(); }catch(e){}
+
+/* ---------- Hjälpfunktioner ---------- */
+const $ = s => document.querySelector(s);
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2,7);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad = n => String(n).padStart(2,'0');
+const hm = d => pad(d.getHours()) + ':' + pad(d.getMinutes());
+const dayKey = d => d.getFullYear() + '-' + pad(d.getMonth()+1) + '-' + pad(d.getDate());
+const wd = d => (d.getDay() + 6) % 7;
+const placeById = id => state.places.find(p => p.id === id);
+const entryById = id => state.entries.find(e => e.id === id);
+const sorted = () => state.entries.slice().sort((a,b) => a.t < b.t ? 1 : -1);
+
+function distM(aLat,aLon,bLat,bLon){
+  const R = 6371000, r = x => x*Math.PI/180;
+  const dLat = r(bLat-aLat), dLon = r(bLon-aLon);
+  const h = Math.sin(dLat/2)**2 + Math.cos(r(aLat))*Math.cos(r(bLat))*Math.sin(dLon/2)**2;
+  return 2*R*Math.asin(Math.sqrt(h));
+}
+function fmtDist(m){ return m < 1000 ? Math.round(m/10)*10 + ' m' : (m/1000).toFixed(1).replace('.',',') + ' km'; }
+function fmtDur(min){
+  if (min < 60) return Math.round(min) + ' min';
+  const h = Math.floor(min/60), m = Math.round(min%60);
+  return h + ' h' + (m ? ' ' + m + ' min' : '');
+}
+function relDay(d){
+  const t = new Date(); t.setHours(0,0,0,0);
+  const x = new Date(d); x.setHours(0,0,0,0);
+  const diff = Math.round((t - x)/86400000);
+  if (diff === 0) return 'Idag';
+  if (diff === 1) return 'Igår';
+  return x.toLocaleDateString('sv-SE', { weekday:'long', day:'numeric', month:'long' });
+}
+
+let toastTimer;
+function toast(msg){
+  const el = $('#toast'); el.textContent = msg; el.hidden = false;
+  clearTimeout(toastTimer); toastTimer = setTimeout(() => el.hidden = true, 2600);
+}
+
+/* ---------- Plats ---------- */
+function getPos(){
+  return new Promise((res, rej) => {
+    if (!('geolocation' in navigator)) return rej(new Error('unsupported'));
+    navigator.geolocation.getCurrentPosition(res, rej, { enableHighAccuracy:true, timeout:15000, maximumAge:60000 });
+  });
+}
+function nearestPlaces(lat, lon){
+  return state.places
+    .filter(p => p.lat != null)
+    .map(p => ({ p, d: distM(lat, lon, p.lat, p.lon) }))
+    .sort((a,b) => a.d - b.d);
+}
+function matchPlace(e){
+  if (e.lat == null) return null;
+  const radius = BASE_RADIUS + Math.min(e.acc || 0, 250);
+  const best = nearestPlaces(e.lat, e.lon)[0];
+  return best && best.d <= radius ? best.p : null;
+}
+// Lär platsen: flytta mittpunkten mot den nya positionen (löpande medelvärde)
+function learn(place, e){
+  if (!place || e.lat == null) return;
+  if (place.lat == null){ place.lat = e.lat; place.lon = e.lon; place.n = 1; return; }
+  if (distM(place.lat, place.lon, e.lat, e.lon) > LEARN_LIMIT) return;
+  const n = Math.min(place.n || 1, 30); // begränsa vikten så platsen kan flytta sig lite över tid
+  place.lat = (place.lat*n + e.lat)/(n+1);
+  place.lon = (place.lon*n + e.lon)/(n+1);
+  place.n = (place.n || 1) + 1;
+}
+function setPlace(e, placeId, auto){
+  e.placeId = placeId; e.placeAuto = !!auto;
+  if (placeId && !auto) learn(placeById(placeId), e);
+}
+
+/* ---------- Loggning ---------- */
+let gpsStatus = {};
+function logNow(){
+  const e = { id: uid(), t: new Date().toISOString(), lat:null, lon:null, acc:null, placeId:null, placeAuto:false, tag:null };
+  state.entries.push(e); save();
+  try{ navigator.vibrate && navigator.vibrate(30); }catch(_){}
+  gpsStatus[e.id] = 'Hämtar plats…';
+  renderAll(); openSheet(e.id, true);
+  getPos().then(pos => {
+    const cur = entryById(e.id); if (!cur) return;
+    cur.lat = +pos.coords.latitude.toFixed(6);
+    cur.lon = +pos.coords.longitude.toFixed(6);
+    cur.acc = Math.round(pos.coords.accuracy);
+    gpsStatus[e.id] = 'Position ±' + cur.acc + ' m';
+    if (!cur.placeId){
+      const m = matchPlace(cur);
+      if (m) setPlace(cur, m.id, true);
+    }
+    save(); renderAll(); refreshSheet();
+  }).catch(err => {
+    gpsStatus[e.id] = err && err.code === 1 ? 'Platsåtkomst nekad – välj plats själv' : 'Ingen position – välj plats själv';
+    refreshSheet();
+  });
+}
+
+/* ---------- Sheet (redigera loggning) ---------- */
+let sheetId = null, sheetIsNew = false, showNewPlace = false, showNewTag = false, confirmDelete = false;
+function openSheet(id, isNew){
+  sheetId = id; sheetIsNew = !!isNew; showNewPlace = false; showNewTag = false; confirmDelete = false;
+  $('#backdrop').hidden = false; $('#sheet').hidden = false;
+  refreshSheet();
+  setTimeout(() => { const b = $('#sheet [data-act="done"]'); b && b.focus({preventScroll:true}); }, 50);
+}
+function closeSheet(){
+  sheetId = null; $('#backdrop').hidden = true; $('#sheet').hidden = true;
+  $('#logBtn') && !$('#view-log').hidden && $('#logBtn').focus({preventScroll:true});
+}
+function refreshSheet(){
+  if (!sheetId) return;
+  const e = entryById(sheetId); if (!e){ closeSheet(); return; }
+  const d = new Date(e.t);
+  // Platser: sortera på avstånd om vi har position, annars på användning
+  let places;
+  if (e.lat != null){
+    const near = nearestPlaces(e.lat, e.lon);
+    const dist = new Map(near.map(x => [x.p.id, x.d]));
+    places = state.places.slice().sort((a,b) => (dist.get(a.id) ?? 1e12) - (dist.get(b.id) ?? 1e12));
+    places = places.map(p => ({ p, d: dist.get(p.id) }));
+  } else {
+    const use = {}; state.entries.forEach(x => x.placeId && (use[x.placeId] = (use[x.placeId]||0)+1));
+    places = state.places.slice().sort((a,b) => (use[b.id]||0) - (use[a.id]||0)).map(p => ({ p }));
+  }
+  const cur = e.placeId && placeById(e.placeId);
+  const local = new Date(d.getTime() - d.getTimezoneOffset()*60000).toISOString().slice(0,16);
+
+  $('#sheet').innerHTML = `
+    <div class="grab" aria-hidden="true"></div>
+    <h3 id="sheetTitle">${sheetIsNew ? 'Loggat ' + hm(d) : relDay(d) + ' ' + hm(d)}</h3>
+    <p class="hint">${esc(gpsStatus[e.id] || (e.lat != null ? 'Position ±' + e.acc + ' m' : 'Ingen position sparad'))}</p>
+
+    <h2>Plats ${cur && e.placeAuto ? '<span class="badge">Föreslagen</span>' : ''}</h2>
+    ${cur && e.placeAuto ? '<p class="hint" style="margin:-4px 0 8px">Igenkänd utifrån tidigare loggningar. Tryck på en annan om den är fel.</p>' : ''}
+    <div class="chips" role="group" aria-label="Plats">
+      ${places.map(({p,d}) => `<button class="chip" data-act="place" data-id="${p.id}" aria-pressed="${p.id===e.placeId}">${esc(p.name)}${d != null && d < 50000 ? `<span class="dist">${fmtDist(d)}</span>` : ''}</button>`).join('')}
+      <button class="chip add" data-act="newPlaceToggle" aria-expanded="${showNewPlace}">+ Ny plats</button>
+    </div>
+    <form class="inline-add" data-form="place" ${showNewPlace ? '' : 'hidden'}>
+      <input type="text" name="name" placeholder="T.ex. Hemma, Jobbet, Bilen" aria-label="Namn på ny plats" enterkeyhint="done" autocomplete="off">
+      <button class="btn primary" type="submit">Spara</button>
+    </form>
+
+    <h2>Situation <span class="muted small" style="font-weight:400">(valfritt)</span></h2>
+    <div class="chips" role="group" aria-label="Situation">
+      ${state.tags.map(t => `<button class="chip" data-act="tag" data-tag="${esc(t)}" aria-pressed="${t===e.tag}">${esc(t)}</button>`).join('')}
+      <button class="chip add" data-act="newTagToggle" aria-expanded="${showNewTag}">+ Egen</button>
+    </div>
+    <form class="inline-add" data-form="tag" ${showNewTag ? '' : 'hidden'}>
+      <input type="text" name="name" placeholder="Ny situation" aria-label="Ny situation" enterkeyhint="done" autocomplete="off">
+      <button class="btn primary" type="submit">Lägg till</button>
+    </form>
+
+    ${sheetIsNew ? '' : `
+      <h2>Tid</h2>
+      <div class="inline-add"><input type="datetime-local" data-act="time" value="${local}" aria-label="Tidpunkt"></div>`}
+
+    <div class="row" style="margin-top:20px">
+      <button class="btn ${confirmDelete ? 'danger' : ''}" data-act="delete">${confirmDelete ? 'Tryck igen för att ta bort' : (sheetIsNew ? 'Ångra' : 'Ta bort')}</button>
+      <button class="btn primary" data-act="done">Klar</button>
+    </div>`;
+  const focusInput = showNewPlace ? '[data-form="place"] input' : showNewTag ? '[data-form="tag"] input' : null;
+  if (focusInput) setTimeout(() => $('#sheet ' + focusInput).focus(), 30);
+}
+
+$('#sheet').addEventListener('click', ev => {
+  const b = ev.target.closest('[data-act]'); if (!b) return;
+  const e = entryById(sheetId); if (!e) return;
+  const act = b.dataset.act;
+  if (act !== 'delete') confirmDelete = false;
+  if (act === 'place'){
+    if (e.placeId === b.dataset.id && !e.placeAuto) setPlace(e, null, false);
+    else setPlace(e, b.dataset.id, false); // bekräftat val = appen lär sig
+    save(); renderAll(); refreshSheet();
+  } else if (act === 'tag'){
+    e.tag = e.tag === b.dataset.tag ? null : b.dataset.tag;
+    save(); renderAll(); refreshSheet();
+  } else if (act === 'newPlaceToggle'){ showNewPlace = !showNewPlace; showNewTag = false; refreshSheet(); }
+  else if (act === 'newTagToggle'){ showNewTag = !showNewTag; showNewPlace = false; refreshSheet(); }
+  else if (act === 'delete'){
+    if (!confirmDelete){ confirmDelete = true; refreshSheet(); return; }
+    state.entries = state.entries.filter(x => x.id !== e.id);
+    save(); closeSheet(); renderAll(); toast('Loggningen togs bort');
+  } else if (act === 'done'){
+    if (e.placeId && e.placeAuto){ e.placeAuto = false; learn(placeById(e.placeId), e); save(); } // stängt utan ändring = förslaget godkänt
+    closeSheet(); renderAll();
+  }
+});
+$('#sheet').addEventListener('change', ev => {
+  if (ev.target.dataset.act !== 'time') return;
+  const e = entryById(sheetId); const v = ev.target.value; if (!e || !v) return;
+  const d = new Date(v); if (isNaN(d)) return;
+  e.t = d.toISOString(); save(); renderAll();
+});
+$('#sheet').addEventListener('submit', ev => {
+  ev.preventDefault();
+  const form = ev.target, name = form.name.value.trim(); if (!name) return;
+  const e = entryById(sheetId); if (!e) return;
+  if (form.dataset.form === 'place'){
+    let p = state.places.find(x => x.name.toLowerCase() === name.toLowerCase());
+    if (!p){ p = { id: uid(), name, lat:null, lon:null, n:0 }; state.places.push(p); }
+    setPlace(e, p.id, false); showNewPlace = false;
+  } else {
+    if (!state.tags.some(t => t.toLowerCase() === name.toLowerCase())) state.tags.push(name);
+    e.tag = state.tags.find(t => t.toLowerCase() === name.toLowerCase()); showNewTag = false;
+  }
+  save(); renderAll(); refreshSheet();
+});
+$('#backdrop').addEventListener('click', () => $('#sheet [data-act="done"]').click());
+document.addEventListener('keydown', ev => { if (ev.key === 'Escape' && sheetId) $('#sheet [data-act="done"]').click(); });
+
+/* ---------- Vyer ---------- */
+let currentView = 'log';
+document.querySelectorAll('nav button').forEach(b => b.addEventListener('click', () => showView(b.dataset.view)));
+function showView(v){
+  currentView = v;
+  document.querySelectorAll('.view').forEach(s => s.hidden = s.id !== 'view-' + v);
+  document.querySelectorAll('nav button').forEach(b => {
+    if (b.dataset.view === v) b.setAttribute('aria-current','page'); else b.removeAttribute('aria-current');
+  });
+  renderAll(); window.scrollTo(0,0);
+}
+
+function renderAll(){
+  const all = sorted();
+  const todayKey = dayKey(new Date());
+  const today = all.filter(e => dayKey(new Date(e.t)) === todayKey);
+  $('#todayCount').textContent = today.length + ' idag';
+
+  if (currentView === 'log') renderLog(all, today);
+  if (currentView === 'history') renderHistory(all);
+  if (currentView === 'patterns') renderPatterns(all);
+  if (currentView === 'data') renderData();
+}
+
+function renderLog(all, today){
+  const last = all[0];
+  if (last){
+    const d = new Date(last.t), min = (Date.now() - d)/60000;
+    const p = last.placeId && placeById(last.placeId);
+    $('#lastInfo').innerHTML = `Senast ${relDay(d).toLowerCase()} ${hm(d)}${p ? ' · ' + esc(p.name) : ''}<br>${min < 1 ? 'nyss' : fmtDur(min) + ' sedan'}`;
+  } else $('#lastInfo').textContent = 'Tryck på knappen varje gång du tar en snus.';
+  const week = all.filter(e => Date.now() - new Date(e.t) < 7*86400000);
+  const gaps = gapsToday(today);
+  $('#quickStats').innerHTML = `
+    <div class="stat"><b>${today.length}</b><small>idag</small></div>
+    <div class="stat"><b>${(week.length/7).toFixed(1).replace('.',',')}</b><small>snitt/dag, 7 d</small></div>
+    <div class="stat"><b>${gaps != null ? fmtDur(gaps) : '–'}</b><small>snittpaus idag</small></div>`;
+}
+function gapsToday(today){
+  if (today.length < 2) return null;
+  const ts = today.map(e => +new Date(e.t)).sort((a,b) => a-b);
+  let s = 0; for (let i=1;i<ts.length;i++) s += ts[i]-ts[i-1];
+  return s/(ts.length-1)/60000;
+}
+
+function renderHistory(all){
+  if (!all.length){ $('#historyList').innerHTML = '<p class="empty">Inga loggningar än.</p>'; return; }
+  const groups = new Map();
+  all.forEach(e => { const k = dayKey(new Date(e.t)); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(e); });
+  let html = '', shown = 0;
+  for (const [, list] of groups){
+    if (shown > 300) break;
+    html += `<div class="day"><h2><span>${esc(relDay(new Date(list[0].t)))}</span><span>${list.length} st</span></h2>`;
+    list.forEach(e => {
+      const p = e.placeId && placeById(e.placeId);
+      html += `<button class="entry" data-id="${e.id}">
+        <time datetime="${e.t}">${hm(new Date(e.t))}</time>
+        <span class="meta"><div>${p ? esc(p.name) : '<span class="muted">Ingen plats</span>'}</div>
+        ${e.tag ? `<div class="sub">${esc(e.tag)}</div>` : ''}</span></button>`;
+      shown++;
+    });
+    html += '</div>';
+  }
+  $('#historyList').innerHTML = html;
+}
+$('#historyList').addEventListener('click', ev => { const b = ev.target.closest('.entry'); if (b) openSheet(b.dataset.id, false); });
+
+let period = 30;
+$('#periodSeg').addEventListener('click', ev => {
+  const b = ev.target.closest('button'); if (!b) return;
+  period = +b.dataset.period;
+  document.querySelectorAll('#periodSeg button').forEach(x => x.setAttribute('aria-pressed', x === b));
+  renderAll();
+});
+
+function bars(rows, total){
+  const max = Math.max(1, ...rows.map(r => r[1]));
+  return rows.map(([l,n]) => `<div class="hbar"><span class="lbl">${esc(l)}</span>
+    <span class="track"><span class="fill" style="display:block;width:${n/max*100}%"></span></span>
+    <span class="n">${n}</span></div>`).join('') || '<p class="muted small">Ingen data.</p>';
+}
+function renderPatterns(all){
+  const cutoff = period ? Date.now() - period*86400000 : 0;
+  const list = all.filter(e => +new Date(e.t) >= cutoff);
+  if (!list.length){ $('#patterns').innerHTML = '<p class="empty">Inga loggningar under perioden.</p>'; return; }
+
+  const first = Math.min(...list.map(e => +new Date(e.t)));
+  const days = period ? Math.min(period, Math.max(1, Math.ceil((Date.now()-first)/86400000))) : Math.max(1, Math.ceil((Date.now()-first)/86400000));
+  const hours = Array(24).fill(0), wk = Array(7).fill(0), places = {}, tags = {}, byDay = {};
+  list.forEach(e => {
+    const d = new Date(e.t);
+    hours[d.getHours()]++; wk[wd(d)]++;
+    const p = e.placeId && placeById(e.placeId);
+    const pn = p ? p.name : 'Ingen plats'; places[pn] = (places[pn]||0)+1;
+    const tn = e.tag || 'Ingen situation'; tags[tn] = (tags[tn]||0)+1;
+    (byDay[dayKey(d)] ||= []).push(d);
+  });
+  const hmax = Math.max(1, ...hours);
+
+  // Första snus per dag, i snitt
+  const firsts = Object.values(byDay).map(arr => { const m = arr.reduce((a,b) => a<b?a:b); return m.getHours()*60 + m.getMinutes(); });
+  const avgFirst = firsts.reduce((a,b) => a+b, 0)/firsts.length;
+  // Snittpaus inom dagar
+  let gsum = 0, gn = 0;
+  Object.values(byDay).forEach(arr => { const ts = arr.map(Number).sort((a,b)=>a-b); for (let i=1;i<ts.length;i++){ gsum += ts[i]-ts[i-1]; gn++; } });
+
+  // Insikter
+  const insights = [];
+  const peakH = hours.indexOf(hmax);
+  insights.push(`Flest snus mellan ${pad(peakH)}:00 och ${pad((peakH+1)%24)}:00.`);
+  const topPlace = Object.entries(places).sort((a,b)=>b[1]-a[1])[0];
+  if (topPlace) insights.push(`${Math.round(topPlace[1]/list.length*100)} % av loggningarna: ${esc(topPlace[0])}.`);
+  const tagged = Object.entries(tags).filter(([k]) => k !== 'Ingen situation').sort((a,b)=>b[1]-a[1]);
+  if (tagged[0]) insights.push(`Vanligaste situationen: ${esc(tagged[0][0])} (${tagged[0][1]} st).`);
+  const weekend = (wk[5]+wk[6])/2, weekday = (wk[0]+wk[1]+wk[2]+wk[3]+wk[4])/5;
+  if (days >= 14 && weekday > 0) {
+    const r = weekend/weekday;
+    if (r > 1.15) insights.push(`Fler snus per helgdag än vardag (${Math.round((r-1)*100)} % fler).`);
+    else if (r < 0.85) insights.push(`Färre snus per helgdag än vardag (${Math.round((1-r)*100)} % färre).`);
+  }
+  if (list.length < 20) insights.push('Underlaget är litet än – mönstren blir säkrare efter ett par veckor.');
+
+  $('#patterns').innerHTML = `
+    <div class="stats" style="margin-top:12px">
+      <div class="stat"><b>${(list.length/days).toFixed(1).replace('.',',')}</b><small>per dag</small></div>
+      <div class="stat"><b>${pad(Math.floor(avgFirst/60))}:${pad(Math.round(avgFirst%60) % 60)}</b><small>första, snitt</small></div>
+      <div class="stat"><b>${gn ? fmtDur(gsum/gn/60000) : '–'}</b><small>snittpaus</small></div>
+    </div>
+    <h2>Iakttagelser</h2>
+    <div class="card"><ul class="insight">${insights.map(i => `<li>${i}</li>`).join('')}</ul></div>
+    <h2>Tid på dygnet</h2>
+    <div class="card">
+      <div class="hours" role="img" aria-label="Antal snus per timme. Flest klockan ${pad(peakH)}.">
+        ${hours.map((n,h) => `<div style="height:${n/hmax*100}%" title="${pad(h)}:00 – ${n} st"></div>`).join('')}
+      </div>
+      <div class="hours-axis"><span>00</span><span>06</span><span>12</span><span>18</span></div>
+    </div>
+    <h2>Veckodag</h2>
+    <div class="card">${bars(WEEKDAYS.map((w,i) => [w, wk[i]]))}</div>
+    <h2>Plats</h2>
+    <div class="card">${bars(Object.entries(places).sort((a,b)=>b[1]-a[1]))}</div>
+    <h2>Situation</h2>
+    <div class="card">${bars(Object.entries(tags).sort((a,b)=>b[1]-a[1]))}</div>
+    <p class="muted small">${list.length} loggningar över ${days} ${days === 1 ? 'dag' : 'dagar'}.</p>`;
+}
+
+/* ---------- Data-vy ---------- */
+let renaming = null, confirmPlaceDel = null;
+function renderData(){
+  const use = {}; state.entries.forEach(e => e.placeId && (use[e.placeId] = (use[e.placeId]||0)+1));
+  $('#placeList').innerHTML = state.places.length ? state.places.map(p => renaming === p.id ? `
+    <form class="place-row" data-rename="${p.id}">
+      <input type="text" name="name" value="${esc(p.name)}" aria-label="Nytt namn">
+      <button class="btn primary" type="submit">Spara</button>
+    </form>` : `
+    <div class="place-row">
+      <span class="name">${esc(p.name)} <span class="muted small">${use[p.id]||0} st${p.lat == null ? ' · ingen position än' : ''}</span></span>
+      <button class="btn" data-pact="rename" data-id="${p.id}">Byt namn</button>
+      <button class="btn ${confirmPlaceDel === p.id ? 'danger' : ''}" data-pact="del" data-id="${p.id}" aria-label="Ta bort ${esc(p.name)}">${confirmPlaceDel === p.id ? 'Säker?' : 'Ta bort'}</button>
+    </div>`).join('') : '<p class="muted small">Inga platser än. De skapas när du loggar.</p>';
+
+  $('#tagList').innerHTML = `<div class="chips">${state.tags.map(t => `<button class="chip" data-tdel="${esc(t)}" aria-label="Ta bort ${esc(t)}">${esc(t)} ✕</button>`).join('')}</div>
+    <p class="muted small">Tryck för att ta bort en situation från listan. Gamla loggningar behåller sin tagg.</p>`;
+
+  const bytes = (localStorage.getItem(LS_KEY) || '').length;
+  $('#storageInfo').textContent = `${state.entries.length} loggningar, ${state.places.length} platser. ${Math.round(bytes/1024)} kB sparat lokalt på telefonen.`;
+}
+$('#placeList').addEventListener('click', ev => {
+  const b = ev.target.closest('[data-pact]'); if (!b) return;
+  const id = b.dataset.id;
+  if (b.dataset.pact === 'rename'){ renaming = id; confirmPlaceDel = null; renderData(); setTimeout(() => $('#placeList input').focus(), 30); }
+  else if (confirmPlaceDel !== id){ confirmPlaceDel = id; renderData(); }
+  else {
+    state.places = state.places.filter(p => p.id !== id);
+    state.entries.forEach(e => { if (e.placeId === id){ e.placeId = null; e.placeAuto = false; } });
+    confirmPlaceDel = null; save(); renderAll(); toast('Platsen togs bort');
+  }
+});
+$('#placeList').addEventListener('submit', ev => {
+  ev.preventDefault();
+  const p = placeById(ev.target.dataset.rename), name = ev.target.name.value.trim();
+  if (p && name) p.name = name;
+  renaming = null; save(); renderAll();
+});
+$('#tagList').addEventListener('click', ev => {
+  const b = ev.target.closest('[data-tdel]'); if (!b) return;
+  state.tags = state.tags.filter(t => t !== b.dataset.tdel); save(); renderAll();
+});
+
+/* ---------- Export / import ---------- */
+function toCsv(){
+  const q = v => { const s = String(v ?? ''); return /[;"\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s; };
+  const head = ['datum','tid','veckodag','timme','plats','plats_foreslagen','situation','lat','lon','noggrannhet_m'];
+  const rows = state.entries.slice().sort((a,b) => a.t < b.t ? -1 : 1).map(e => {
+    const d = new Date(e.t), p = e.placeId && placeById(e.placeId);
+    return [dayKey(d), hm(d), WEEKDAYS[wd(d)], d.getHours(), p ? p.name : '', e.placeAuto ? 'ja' : 'nej', e.tag || '',
+      e.lat != null ? String(e.lat).replace('.',',') : '', e.lon != null ? String(e.lon).replace('.',',') : '', e.acc ?? ''].map(q).join(';');
+  });
+  return '﻿' + [head.join(';'), ...rows].join('\n');
+}
+async function shareFile(name, type, text){
+  const file = new File([text], name, { type });
+  try{
+    if (navigator.canShare && navigator.canShare({ files:[file] })){
+      await navigator.share({ files:[file], title:name }); return;
+    }
+  }catch(err){ if (err && err.name === 'AbortError') return; }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(file); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+const stamp = () => dayKey(new Date());
+$('#exportCsv').addEventListener('click', () => shareFile(`snuslogg-${stamp()}.csv`, 'text/csv', toCsv()));
+$('#exportJson').addEventListener('click', () => shareFile(`snuslogg-backup-${stamp()}.json`, 'application/json',
+  JSON.stringify({ app:'snuslogg', version:1, exported:new Date().toISOString(), ...state }, null, 1)));
+$('#copyCsv').addEventListener('click', async () => {
+  try{ await navigator.clipboard.writeText(toCsv().slice(1)); toast('CSV kopierad'); }
+  catch(e){ toast('Kunde inte kopiera'); }
+});
+$('#importFile').addEventListener('change', async ev => {
+  const f = ev.target.files[0]; if (!f) return;
+  try{
+    const data = JSON.parse(await f.text());
+    if (!Array.isArray(data.entries)) throw new Error();
+    const ids = new Set(state.entries.map(e => e.id));
+    const pids = new Set(state.places.map(p => p.id));
+    let added = 0;
+    (data.places || []).forEach(p => { if (!pids.has(p.id)) state.places.push(p); });
+    data.entries.forEach(e => { if (e && e.id && e.t && !ids.has(e.id)){ state.entries.push(e); added++; } });
+    (data.tags || []).forEach(t => { if (!state.tags.includes(t)) state.tags.push(t); });
+    save(); renderAll(); toast(`${added} loggningar inlästa`);
+  }catch(e){ toast('Filen kunde inte läsas'); }
+  ev.target.value = '';
+});
+let wipeArmed = false;
+$('#wipeBtn').addEventListener('click', () => {
+  if (!wipeArmed){ wipeArmed = true; $('#wipeBtn').textContent = 'Tryck igen för att radera allt'; setTimeout(() => { wipeArmed = false; $('#wipeBtn').textContent = 'Radera all data'; }, 4000); return; }
+  state = { entries:[], places:[], tags: DEFAULT_TAGS.slice() }; save(); wipeArmed = false;
+  $('#wipeBtn').textContent = 'Radera all data'; renderAll(); toast('All data raderad');
+});
+
+/* ---------- Start ---------- */
+$('#logBtn').addEventListener('click', logNow);
+setInterval(() => { if (currentView === 'log' && !sheetId) renderAll(); }, 30000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) renderAll(); });
+renderAll();
+})();
+</script>
+</body>
+</html>
